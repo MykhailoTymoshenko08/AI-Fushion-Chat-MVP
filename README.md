@@ -33,29 +33,28 @@ my_ai_project/
 ```
 
 ## Технологічний стек
-```bash
--**Python 3.10+**
--**LangChain**
--**ChromaDB**
--**Tavily**
--**FastAPI**
--**Streamlit**
--**SQLite3**
--**OpenRouter API**
--**asyncio**
--**langchain-openai**
--**langchain-core**
--**langchain_huggingface**
--**langchain_community**
--**langchain_text_splitters**
--**pydantic**
--**shutil**
--**dotenv**
--**Uvicorn**
--**Json**
--**Typing**
--**datetime**
-```
+- **Python 3.10+**
+- **LangChain**
+- **ChromaDB**
+- **Tavily**
+- **FastAPI**
+- **Streamlit**
+- **SQLite3**
+- **OpenRouter API**
+- **asyncio**
+- **langchain-openai**
+- **langchain-core**
+- **langchain_huggingface**
+- **langchain_community**
+- **langchain_text_splitters**
+- **pydantic**
+- **shutil**
+- **dotenv**
+- **Uvicorn**
+- **Json**
+- **Typing**
+- **datetime**
+
 
 ## Встановлення та запуск
 
@@ -148,10 +147,9 @@ DELETE  /clear	    Очищення історії запитів.
 ### 1. Input: Користувач задає питання.
 ### Context:
 ```texte
--Пошук схожих чанків у ChromaDB (з PDF).
--Пошук в інтернеті через Tavily.
+- Пошук схожих чанків у ChromaDB (з PDF).
+- Пошук в інтернеті через Tavily.
 ```
 ### 2. Aggregation: Питання + Контекст надсилаються паралельно двом моделям.
 ### 3. Judging: Відповіді моделей передаються третій моделі (Judge), яка формує фінальний результат.
 ### 4. Output: Користувач отримує найкращу можливу відповідь.
-
