@@ -1,0 +1,7 @@
+.env
+__pycache__/
+venv/
+db_storage/
+my_aggregator.db
+*.pdf
+temp_*
