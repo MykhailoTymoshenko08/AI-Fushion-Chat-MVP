@@ -1,153 +1,86 @@
-# AI Fusion Chat (Multi-LLM Judge Aggregator)
+# AI Fusion Chat — MVP
 
-**AI Fusion Chat** — це потужна платформа для агрегації відповідей від кількох LLM з використанням патерну "LLM-as-a-Judge". Система не лише опитує моделі паралельно, але й має можливості RAG (Retrieval-Augmented Generation) для роботи з PDF-файлами та доступ до інтернету через Tavily Search API для отримання актуальної інформації.
+> Ask one question, get answers from **two LLMs in parallel**, and let a **third model act as a judge** that merges them into one final answer. Answers are grounded in your **PDFs** (RAG over ChromaDB) and **live web search** (Tavily).
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.31+-FF4B4B.svg)
-![LangChain](https://img.shields.io/badge/LangChain-0.1+-green.svg)
+![Python](https://img.shields.io/badge/Python_3.10+-3670A0?style=flat-square&logo=python&logoColor=ffdd54)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat-square&logo=fastapi)
+![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=flat-square&logo=langchain&logoColor=white)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-FF6446?style=flat-square)
+![Tavily](https://img.shields.io/badge/Tavily-search-0A66C2?style=flat-square)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
-## Основні можливості
+---
 
-* **Multi-LLM Architecture**: Паралельні асинхронні запити до двох моделей через OpenRouter.
-* **AI Judge System**: Окрема модель аналізує відповіді та генерує фінальний, синтезований висновок.
-* **RAG (PDF Analysis)**: Завантаження PDF-документів, їх векторизація (ChromaDB) та використання як контексту для відповідей.
-* **Web Search**: Інтеграція з Tavily API для пошуку актуальної інформації в інтернеті.
-* **Smart Context Routing**: Система автоматично обирає джерело даних (PDF, Web або загальні знання) залежно від запиту.
-* **History & Analytics**: Збереження історії запитів у SQLite та перегляд статистики продуктивності моделей.
+## How a request flows
 
-## Структура проєкту
-
-```text
-my_ai_project/
-├── backend/
-│   ├── server.py           # Основний файл FastAPI бекенду
-│   └── my_aggregator.db    # SQLite база даних (історія)
-├── frontend/
-│   └── ui.py               # Streamlit інтерфейс
-├── db_storage/             # Папка для векторної бази даних (ChromaDB)
-├── .env                    # Змінні середовища (API ключі)
-├── requirements.txt        # Залежності
-├── helper.txt              # Допоміжні нотатки
-└── README.md               # Документація
+```mermaid
+flowchart TD
+    Q[Question] --> CTX{{Context gathered in parallel}}
+    CTX --> PDF[ChromaDB similarity search<br/>top-3 chunks from uploaded PDFs]
+    CTX --> WEB[Tavily web search<br/>top-3 results with URLs]
+    PDF & WEB --> F[Merged context]
+    F --> M1[Llama 3.3 70B]
+    F --> M2[Gemma 3 27B]
+    M1 & M2 --> J[Judge model<br/>synthesizes one answer]
+    J --> A[Final answer + both raw answers + timings]
+    A --> H[(SQLite history)]
 ```
 
-## Технологічний стек
-- **Python 3.10+**
-- **LangChain**
-- **ChromaDB**
-- **Tavily**
-- **FastAPI**
-- **Streamlit**
-- **SQLite3**
-- **OpenRouter API**
-- **asyncio**
-- **langchain-openai**
-- **langchain-core**
-- **langchain_huggingface**
-- **langchain_community**
-- **langchain_text_splitters**
-- **pydantic**
-- **shutil**
-- **dotenv**
-- **Uvicorn**
-- **Json**
-- **Typing**
-- **datetime**
+- **Parallel everything.** PDF retrieval and web search run concurrently (`asyncio.to_thread`), then both models are queried concurrently with `asyncio.gather` — the user waits for the slowest model, not for the sum.
+- **LLM-as-a-Judge.** A third model receives the question and both answers and writes a single final answer without meta-commentary. If both answers start identically, the judge call is skipped to save time and tokens.
+- **Grounding rules in the prompt.** Personal-file questions are answered only from PDF data; unrelated PDF and web content must not be mixed; the current date is injected so web results are read in context.
+- **RAG.** Uploaded PDFs are split into 500-character chunks (50 overlap), embedded locally with `sentence-transformers/all-MiniLM-L6-v2` and stored in a persistent ChromaDB collection — no paid embedding API.
+- **Observability-lite.** Every model answer and its latency is stored in SQLite; `/stats` shows request count and avg / min / max latency per model.
 
+## Quick start
 
-## Встановлення та запуск
-
-### 1. Клонування репозиторію
-
-```bash 
-git clone https://github.com/MykhailoTymoshenko08/AI-Fushion-Chat-MVP
-cd my_ai_project
-```
-
-### 2. Створення віртуального середовища
-
-Windows:
 ```bash
-python -m venv venv
-venv\Scripts\activate
-```
-macOS/Linux:
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Встановлення залежностей
-```bash
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+
+cat > .env <<EOF
+OPENROUTER_API_KEY=sk-or-...
+TAVILY_API_KEY=tvly-...
+EOF
+
+cd backend && uvicorn server:app --reload      # terminal 1 → http://localhost:8000/docs
+streamlit run frontend/ui.py                   # terminal 2 → http://localhost:8501
 ```
 
-### 4. Налаштування .env
-Створіть файл .env у кореневій папці та додайте свої ключі:
-```bash
-OPENROUTER_API_KEY=sk-or-v1-......
-TAVILY_API_KEY=tvly-......
-```
+Upload a PDF in the sidebar, then ask questions about it — or about anything current on the web.
 
-## Використання
+## API
 
-Для роботи системи потрібно запустити Backend та Frontend у двох окремих терміналах.
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/ask` | Two models + judge over PDF and web context |
+| `POST` | `/upload` | Add a PDF to the knowledge base |
+| `GET` | `/history?limit=10` | Recent requests |
+| `GET` | `/stats` | Requests and avg / min / max latency per model |
+| `DELETE` | `/clear` | Clear history |
 
-### Термінал 1: Запуск Backend (FastAPI)
-Перебуваючи у кореневій папці проєкту:
-```bash
-cd backend
-uvicorn server:app --reload
-```
-```text
-API буде доступне за адресою: http://localhost:8000 
-Документація Swagger UI: http://localhost:8000/docs
-```
+<details>
+<summary>Example response</summary>
 
-### Термінал 2: Запуск Frontend (Streamlit)
-Відкрийте новий термінал, активуйте venv та запустіть:
-```bash
-streamlit run frontend/ui.py
-```
-Інтерфейс відкриється автоматично у браузері за адресою: http://localhost:8501
-
-## API Endpoints
-```text
-**Метод   Ендпоінт	Опис**
-POST    /ask	    Основний запит. Опитує 2 моделі + Judge, використовує RAG/Web контекст.
-POST    /upload	    Завантаження PDF файлу для наповнення бази знань (RAG).
-GET     /history	Отримання історії запитів.
-GET     /stats	    Статистика швидкості та кількості запитів до моделей.
-DELETE  /clear	    Очищення історії запитів.
-```
-
-Приклад запиту /ask
-```json
-{
-  "question": "Як працює квантовий комп'ютер?",
-  "model1": "meta-llama/llama-3.3-70b-instruct:free",
-  "model2": "google/gemma-3-27b-it:free",
-  "use_judge": true
-}
-```
-Приклад відповіді
 ```json
 {
   "status": "success",
-  "final_answer": "Квантовий комп'ютер використовує кубіти...",
-  "model1": { "name": "...", "duration": "3.2s" },
-  "model2": { "name": "...", "duration": "2.8s" },
-  "total_duration": "7.5s"
+  "question": "How does a quantum computer work?",
+  "model1": { "name": "meta-llama/llama-3.3-70b-instruct:free", "answer": "…", "duration": "3.20s" },
+  "model2": { "name": "google/gemma-3-27b-it:free", "answer": "…", "duration": "2.80s" },
+  "final_answer": "A quantum computer uses qubits…",
+  "total_duration": "7.50s"
 }
 ```
+</details>
 
-## Архітектура RAG + Judge
+## Roadmap
 
-### 1. Input: Користувач задає питання.
-### 2. Context:
-- Пошук схожих чанків у ChromaDB (з PDF).
-- Пошук в інтернеті через Tavily.   
-### 3. Aggregation: Питання + Контекст надсилаються паралельно двом моделям.
-### 4. Judging: Відповіді моделей передаються третій моделі (Judge), яка формує фінальний результат.
-### 5. Output: Користувач отримує найкращу можливу відповідь.
+This MVP proved the idea; the next version moves to a production stack:
+
+- Model selection per request and multi-model routing through OpenRouter
+- Chat sessions with history passed to the models
+- Async SQLAlchemy + PostgreSQL instead of SQLite, Next.js frontend
+- Retrieval that decides **whether** web search or PDF context is needed instead of always fetching both
+- Langfuse tracing and an eval set for judge quality
